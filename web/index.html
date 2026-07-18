@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Odyssey — where to sit</title>
+<style>
+/* Odyssey trailer palette — sea holds the structure, fire marks what's OPEN.
+   Parchment (light): Sunlit Sand -> Firelight Umber heat ramp on poster paper.
+   Midnight (dark):   ember ramp on Midnight Sea; taken = Storm Teal block.
+   Seat-map colors are validator-checked (CVD + normal-vision separation, ramp
+   monotonicity) against each mode's surface — re-run if you touch them. */
+:root{
+ --paper:#efede4;--panel:#f6f3ea;--ink:#0b171b;--ink-2:#5b6666;--line:#d3ccbb;--rule:#0b171b;
+ --spot:#8f3e1e;--spot-deep:#6f2f15;--spot-ink:#f6efe3;
+ --heat-lo:#b39c7b;--heat-hi:#3c220f;--taken:#d9d5c9;--acc:#3a484e;
+ --display:Baskerville,"Big Caslon","Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
+ --body:"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
+ --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+@media(prefers-color-scheme:dark){:root{
+ --paper:#0b171b;--panel:#1f2b2e;--ink:#efede4;--ink-2:#8fa0a0;--line:#2c3a40;--rule:#c4baa6;
+ --spot:#cc6633;--spot-deep:#e08347;--spot-ink:#0b171b;
+ --heat-lo:#7e4c2f;--heat-hi:#d3743e;--taken:#2a3a40;--acc:#7fb0bd;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.5}
+.wrap{max-width:940px;margin:0 auto;padding:clamp(16px,3.5vw,44px)}
+.mast-top{display:flex;justify-content:space-between;font-family:var(--display);font-size:.66rem;
+ letter-spacing:.3em;text-transform:uppercase;color:var(--ink-2);padding-bottom:.5rem;border-bottom:1px solid var(--rule)}
+h1{font-family:var(--display);font-weight:500;text-transform:uppercase;letter-spacing:.16em;
+ font-size:clamp(2rem,7.5vw,4.4rem);line-height:1.05;margin:.5rem 0 .2rem;text-indent:.08em}
+.strap{font-family:var(--display);font-style:italic;font-size:.95rem;color:var(--ink-2);
+ margin:0 0 1rem;padding-bottom:1rem;border-bottom:3px solid var(--rule)}
+.controls{position:sticky;top:0;background:var(--paper);z-index:5;padding:.9rem 0;border-bottom:1px solid var(--line)}
+.daytabs{display:flex;flex-wrap:wrap;margin-bottom:.7rem}
+.daytab{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;
+ background:none;border:1px solid var(--line);border-right:none;color:var(--ink-2);padding:.5rem .9rem;cursor:pointer}
+.daytab:last-child{border-right:1px solid var(--line)}
+.daytab.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chiprow{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
+.chiplabel{font-family:var(--display);font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-2);margin-right:.2rem}
+.chip{font-family:var(--body);font-size:.8rem;background:none;border:1px solid var(--line);color:var(--ink-2);
+ padding:.26rem .75rem;border-radius:2px;cursor:pointer}
+.chip.on{background:var(--spot);border-color:var(--spot);color:var(--spot-ink)}
+select{font:inherit;font-size:.82rem;padding:.3rem;background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.stub{display:flex;align-items:stretch;border:1.5px solid var(--rule);margin:1.2rem 0 1.4rem;background:var(--panel)}
+.stub-l{flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:.15rem}
+.stub-k{font-family:var(--display);font-size:.62rem;letter-spacing:.26em;text-transform:uppercase;color:var(--spot)}
+.stub-seat{font-family:var(--display);font-weight:600;font-size:clamp(2.2rem,7vw,3.4rem);line-height:.95}
+.stub-meta{font-family:var(--mono);font-size:.78rem;color:var(--ink-2)}
+.stub-r{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:14px 20px;border-left:2px dashed var(--rule)}
+.stub-pos{font-family:var(--display);font-weight:600;font-size:1.7rem;color:var(--spot)}
+.stub-pos small{font-size:.85rem;color:var(--ink-2);font-weight:400}
+.stub-book{font-family:var(--display);font-weight:600;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+ text-decoration:none;color:var(--spot-ink);background:var(--spot);padding:.55rem .95rem;white-space:nowrap;border-radius:2px}
+.venue-rule{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:.95rem;
+ margin:1.4rem 0 .3rem;padding-bottom:.35rem;border-bottom:2px solid var(--rule)}
+.head,.show{display:grid;grid-template-columns:3.4rem 1fr 3.2rem minmax(60px,1fr) 4.2rem 3.6rem;gap:.7rem;align-items:center}
+.head{font-family:var(--display);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2);padding:.35rem 0}
+.show{border-top:1px solid var(--line);padding:.5rem 0;cursor:pointer}
+.show:hover{background:color-mix(in oklab,var(--spot) 6%,transparent)}
+.s-time{font-family:var(--mono);font-weight:700;font-size:.9rem}
+.s-fmt{font-size:.84rem;color:var(--ink-2)}
+.s-seat{font-family:var(--mono);font-weight:700;color:var(--spot)}
+.s-av{font-family:var(--mono);font-size:.74rem;color:var(--ink-2)}
+.s-go{font-family:var(--mono);font-size:.74rem;color:var(--spot);text-decoration:none;text-align:right}
+.show.sold .s-av{color:var(--spot-deep)}
+.bar{display:block;height:8px;background:var(--taken)}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--heat-lo),var(--heat-hi))}
+.map{padding:10px 0 16px}
+.screen{height:4px;width:56%;margin:0 auto 12px;background:var(--spot);opacity:.5;border-radius:0 0 30px 30px/0 0 10px 10px}
+.mapwrap{overflow-x:auto}
+.seatmap{display:grid;gap:2px;justify-content:center;min-width:max-content;margin:0 auto}
+.seat{width:9px;height:9px;background:var(--taken)}
+.seat.acc{outline:1px solid var(--acc);outline-offset:-1px}
+.seat.best{box-shadow:0 0 0 1px var(--paper),0 0 4px var(--spot)}
+.msg{font-family:var(--display);font-style:italic;color:var(--ink-2);font-size:.95rem;padding:2rem 0}
+.regal-h{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.14em;font-size:1.15rem;margin:2rem 0 .3rem;border-top:3px solid var(--rule);padding-top:1.2rem}
+.rnote{color:var(--ink-2);font-size:.82rem;margin:.2rem 0 1rem;max-width:60ch}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0;border:1px solid var(--line)}
+.rlink{display:flex;flex-direction:column;gap:.15rem;padding:11px 14px;text-decoration:none;color:var(--ink);border:1px solid var(--line);margin:-.5px}
+.rlink:hover{background:color-mix(in oklab,var(--spot) 7%,transparent)}
+.rt{font-family:var(--mono);font-weight:700;font-size:.85rem}
+.rf{color:var(--ink-2);font-size:.75rem}
+footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--ink-2);font-size:.75rem;line-height:1.6}
+.motif{display:block;text-align:center;font-family:var(--display);font-size:.6rem;letter-spacing:.34em;
+ text-transform:uppercase;color:var(--ink-2);margin-bottom:.8rem;text-indent:.34em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mast-top"><span>Manhattan Repertory</span><span id="src">seats.db</span></div>
+  <h1>The Odyssey</h1>
+  <p class="strap" id="strap">Where to sit — loading…</p>
+
+  <div class="controls">
+    <div class="daytabs" id="days"></div>
+    <div class="chiprow"><span class="chiplabel">Format</span><span id="fmts"></span></div>
+    <div class="chiprow"><span class="chiplabel">Time</span>
+      <button class="chip time on" data-b="ALL">Any time</button>
+      <button class="chip time" data-b="mat">Matinee</button>
+      <button class="chip time" data-b="eve">Evening</button>
+      <button class="chip time" data-b="late">Late</button>
+      <span class="chiplabel" style="margin-left:1rem">Venue</span>
+      <select id="venue"><option value="">All venues</option></select>
+    </div>
+  </div>
+
+  <div id="view"><p class="msg">Loading…</p></div>
+  <div id="regal"></div>
+
+  <footer><span class="motif">Storm / Dusk / Salt / Ash / Fire / Myth</span>
+  Ranked by seat geometry (centered, ~⅔ back) × format × type; accessible/companion
+  excluded. Click a showtime to load its seat map. Data from <code>seats.db</code> via the API —
+  no live scraping. Personal-use, unaffiliated with AMC.</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const FMT = {IMAX_70MM:"70mm",DOLBY:"Dolby",IMAX_LASER:"IMAX Laser",IMAX_DIGITAL:"IMAX",PRIME:"Prime",STANDARD:"Std"};
+const FMTLONG = {IMAX_70MM:"IMAX · 70mm film",DOLBY:"Dolby Cinema",IMAX_LASER:"IMAX with Laser",IMAX_DIGITAL:"IMAX",PRIME:"Prime",STANDARD:"Standard"};
+const state = {day:null, fmts:new Set(["ALL"]), bucket:"ALL", venue:"", shows:[]};
+const get = async u => (await fetch(u)).json();
+const bucket = t => {const h=+t.slice(11,13); return (h>=21||h<5)?"late":(h>=17?"eve":"mat");};
+const ampm = t => {let h=+t.slice(11,13),m=t.slice(14,16),a=h<12?"a":"p";return `${h%12||12}:${m}${a}`;};
+const wd = d => new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+
+async function boot(){
+  const m = await get("/api/meta?film=The%20Odyssey");
+  // day tabs
+  $("#days").innerHTML = m.dates.map((d,i)=>`<button class="daytab${i?"":" on"}" data-d="${d}">${wd(d)}</button>`).join("");
+  state.day = m.dates[0] || null;
+  // format chips
+  $("#fmts").innerHTML = `<button class="chip fmt on" data-f="ALL">All</button>` +
+    m.formats.map(f=>`<button class="chip fmt" data-f="${f}">${FMT[f]||f}</button>`).join("");
+  // venue select
+  $("#venue").innerHTML = `<option value="">All venues</option>` + m.venues.map(v=>`<option>${v}</option>`).join("");
+  await load();
+}
+
+async function load(){
+  const q = new URLSearchParams({film:"The Odyssey"});
+  if(state.venue) q.append("venue", state.venue);
+  state.shows = await get("/api/showings?"+q);
+  render();
+  renderRegal();
+}
+
+async function renderRegal(data){
+  const r = data || await get("/api/regal?film=The%20Odyssey");
+  const el = $("#regal");
+  if(!r.length){ el.innerHTML = ""; return; }
+  const rows = r.filter(s=>!state.day || s.start_time.slice(0,10)===state.day)
+    .sort((a,b)=>a.start_time.localeCompare(b.start_time));
+  const items = rows.map(s=>`<a class="rlink" href="${s.checkout_url}" target="_blank" rel="noopener">
+    <span class="rt">${ampm(s.start_time)} · ${s.start_time.slice(5,10)}</span>
+    <span class="rf">${FMTLONG[s.fmt]||s.fmt} · ${s.auditorium} · ${s.theater}</span></a>`).join("");
+  el.innerHTML = `<h2 class="regal-h">Regal — pick seats yourself</h2>
+    <p class="rnote">Regal gates seat data behind a CAPTCHA, so we don't rank it. These link
+    straight to Regal's own seat picker.</p><div class="rgrid">${items||'<p class="msg">None this day.</p>'}</div>`;
+}
+
+function passesFilters(s){
+  const okF = state.fmts.has("ALL") || state.fmts.has(s.fmt);
+  const okT = state.bucket==="ALL" || bucket(s.start_time)===state.bucket;
+  const okD = !state.day || s.start_time.slice(0,10)===state.day;
+  return okF && okT && okD;
+}
+
+function render(){
+  const shows = state.shows.filter(passesFilters).sort((a,b)=>a.start_time.localeCompare(b.start_time));
+  $("#strap").textContent = `${state.shows.length} showings in the database · click any showtime for its seat map`;
+  if(!shows.length){ $("#view").innerHTML = `<p class="msg">Nothing matches these filters.</p>`; return; }
+
+  // best pick of the filtered set
+  const ranked = shows.filter(s=>s.best_score!=null).sort((a,b)=>b.best_score-a.best_score);
+  let html = "";
+  if(ranked.length){
+    const b = ranked[0];
+    html += `<div class="stub"><div class="stub-l">
+      <span class="stub-k">Best pick</span>
+      <span class="stub-seat">${b.best_seat}</span>
+      <span class="stub-meta">${ampm(b.start_time)} · ${FMTLONG[b.fmt]||b.fmt} · ${b.theater}</span></div>
+      <div class="stub-r"><span class="stub-pos">${Math.round(b.best_score*100)}<small>/100</small></span>
+      <a class="stub-book" href="${b.checkout_url}" target="_blank" rel="noopener">Get tickets</a></div></div>`;
+  }
+
+  // group by venue
+  const byV = {};
+  shows.forEach(s => (byV[s.theater]=byV[s.theater]||[]).push(s));
+  for(const [venue, list] of Object.entries(byV)){
+    html += `<div class="venue"><h3 class="venue-rule">${venue}</h3>
+      <div class="head"><span>Time</span><span>Format</span><span>Best</span><span>Position</span><span>Seats</span><span></span></div>`;
+    for(const s of list){
+      const av = s.sold_out ? "sold out" : (s.available!=null ? s.available+" open" : "no data");
+      const bar = s.best_score!=null ? `<span class="bar"><i style="width:${Math.max(6,s.best_score*100)}%"></i></span>` : "";
+      const go = s.best_seat ? `<a class="s-go" href="${s.checkout_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Book →</a>` : "";
+      html += `<div class="show${s.sold_out?" sold":""}" data-id="${s.id}">
+        <span class="s-time">${ampm(s.start_time)}</span>
+        <span class="s-fmt">${FMTLONG[s.fmt]||s.fmt}</span>
+        <span class="s-seat">${s.best_seat||"—"}</span>
+        <span>${bar}</span><span class="s-av">${av}</span>${go}</div>
+        <div class="map" id="map-${s.id}" hidden></div>`;
+    }
+    html += `</div>`;
+  }
+  $("#view").innerHTML = html;
+}
+
+async function toggleMap(id){
+  const el = document.getElementById("map-"+id);
+  if(!el) return;
+  if(!el.hidden){ el.hidden = true; return; }
+  el.hidden = false;
+  if(el.dataset.loaded) return;
+  el.innerHTML = `<p class="msg">Loading seat map…</p>`;
+  const m = await get(`/api/showings/${id}/seats`);
+  el.dataset.loaded = "1";
+  const cells = m.seats.map(s=>{
+    const cls = ["seat"];
+    if(s.type==="accessible"||s.type==="companion") cls.push("acc");
+    const best = s.status==="available" && s.rank && s.rank<=3;
+    if(best) cls.push("best");
+    const bg = s.status==="available"
+      ? `background:color-mix(in oklab,var(--heat-hi) ${Math.round(s.geo*100)}%,var(--heat-lo))`
+      : (best?"background:var(--spot)":"");
+    return `<i class="${cls.join(" ")}" style="grid-column:${Math.round(s.x)};grid-row:${Math.round(s.y)};${bg}" title="${s.seat_id} · ${s.status}"></i>`;
+  }).join("");
+  el.innerHTML = `<div class="screen"></div><div class="mapwrap">
+    <div class="seatmap" style="grid-template-columns:repeat(${m.cols},9px);grid-auto-rows:9px">${cells}</div></div>`;
+}
+
+document.addEventListener("click", e=>{
+  const d=e.target.closest(".daytab"); if(d){state.day=d.dataset.d;
+    document.querySelectorAll(".daytab").forEach(b=>b.classList.toggle("on",b===d));render();renderRegal();return;}
+  const f=e.target.closest(".fmt"); if(f){const v=f.dataset.f;
+    if(v==="ALL")state.fmts=new Set(["ALL"]);
+    else{state.fmts.delete("ALL");state.fmts.has(v)?state.fmts.delete(v):state.fmts.add(v);if(!state.fmts.size)state.fmts=new Set(["ALL"]);}
+    document.querySelectorAll(".fmt").forEach(b=>b.classList.toggle("on",state.fmts.has(b.dataset.f)));render();return;}
+  const t=e.target.closest(".time"); if(t){state.bucket=t.dataset.b;
+    document.querySelectorAll(".time").forEach(b=>b.classList.toggle("on",b===t));render();return;}
+  const s=e.target.closest(".show"); if(s){toggleMap(s.dataset.id);return;}
+});
+$("#venue").addEventListener("change", e=>{state.venue=e.target.value;load();});
+
+// Auto-refresh: ingest keeps writing seats.db in the background, so poll and
+// re-render — but ONLY when the data actually changed (a re-render collapses
+// any open seat map, so a no-op tick must stay a no-op).
+async function refreshTick(){
+  try{
+    const m = await get("/api/meta?film=The%20Odyssey");
+    const q = new URLSearchParams({film:"The Odyssey"});
+    if(state.venue) q.append("venue", state.venue);
+    const shows = await get("/api/showings?"+q);
+    const regal = await get("/api/regal?film=The%20Odyssey");
+    const sig = JSON.stringify([m.dates, m.formats, m.venues, shows, regal]);
+    if(sig === state.sig) return;
+    state.sig = sig;
+    if(!m.dates.includes(state.day)) state.day = m.dates[0] || null;   // day rolled off
+    $("#days").innerHTML = m.dates.map(d=>`<button class="daytab${d===state.day?" on":""}" data-d="${d}">${wd(d)}</button>`).join("");
+    $("#fmts").innerHTML = `<button class="chip fmt${state.fmts.has("ALL")?" on":""}" data-f="ALL">All</button>` +
+      m.formats.map(f=>`<button class="chip fmt${state.fmts.has(f)?" on":""}" data-f="${f}">${FMT[f]||f}</button>`).join("");
+    $("#venue").innerHTML = `<option value="">All venues</option>` +
+      m.venues.map(v=>`<option${v===state.venue?" selected":""}>${v}</option>`).join("");
+    state.shows = shows;
+    render(); renderRegal(regal);
+    $("#src").textContent = `seats.db · ${new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}`;
+  }catch(e){ /* server mid-reload — try again next tick */ }
+}
+setInterval(refreshTick, 60000);
+
+boot().catch(e=>$("#view").innerHTML=`<p class="msg">API error: ${e}. Is the server running and seats.db seeded?</p>`);
+</script>
+</body>
+</html>

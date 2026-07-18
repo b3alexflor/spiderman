@@ -1,0 +1,20 @@
+# python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# database (built by seed_demo.py / ingest.py)
+seats.db
+seats.db-wal
+seats.db-shm
+
+# generated output
+ingest.log
+/reports/
+/images/*.png
+/scripts/recon/
+
+# os / editor
+.DS_Store
+*.swp

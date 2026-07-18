@@ -1,0 +1,7 @@
+# Personal-use, low-volume scraping. Be polite.
+playwright>=1.44
+# After install:  python -m playwright install chromium
+
+# API backend + website (query layer over seats.db; no scraping to serve)
+fastapi>=0.110
+uvicorn>=0.29
