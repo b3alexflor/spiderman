@@ -4,6 +4,34 @@ Finds every Manhattan movie theater screening **_The Odyssey_** (70mm / IMAX /
 Dolby), reads the live seat maps, and ranks the best available seats by geometry +
 format — served as a small website over a JSON API.
 
+## Preface — the point behind the joke
+
+On its face this is a whimsical project: an over-engineered way to grab a good seat
+for one movie. That's the joke, and it's meant to be. But the reason it's worth
+building is the **dual use** hiding inside such an innocent-looking function.
+
+To rank a seat for *The Odyssey* at AMC Lincoln Square, you have to solve the hard
+part first: reliably driving each chain's booking flow, intercepting the seat-map
+JSON, defeating the polite-scraping problems (rate floors, anti-bot fronts,
+per-host serialization, screenshot/vision fallback), and normalizing it all into a
+clean, append-only time series. **That groundwork is now done.** The AMC pipeline —
+discovery, seat-level availability, snapshotting, storage — is built, verified live,
+and chain-agnostic by construction.
+
+Which means the exact same machinery scales trivially past one film in one borough.
+Point it at every AMC in the country, on any title, on any cadence, and what falls
+out is a **nationwide, seat-level, time-stamped view of theatrical demand** — live
+occupancy and sell-through by showtime, auditorium, format, and market. That's raw
+**market-intelligence** data (box-office nowcasting, format/premium-screen demand,
+regional and release-window signal), and the collection layer is **fully
+customizable** for that or any other downstream purpose. The seat-finder is the demo;
+the reusable AMC-scraping substrate is the actual deliverable.
+
+(Everything here is built as low-volume, personal-use, detect-and-back-off — see
+**Politeness & rate probing** below. Naming the capability is the point; deploying it
+at scale is a choice with its own legal and ethical weight, and this repo deliberately
+doesn't.)
+
 ## Quick start
 
 ```bash
@@ -245,3 +273,12 @@ python scripts/probe.py "https://www.amctheatres.com/movie-theatres/new-york-cit
 
 Default film/date are `The Odyssey` / today; override with `--film` / `--date` on
 report.py and snapshot.py.
+
+## License
+
+[MIT](LICENSE) — the `AS IS` warranty disclaimer and liability limitation cap the
+authors' exposure **to anyone who receives this code**. That is *not* the same as
+indemnity, and it does *not* cover operating the scraper: running the nationwide
+capability against live ticketing sites carries its own legal weight (ToS, CFAA,
+anti-bot terms) that no software license disclaims. This repo is built and licensed
+as low-volume, personal-use, detect-and-back-off — see **Politeness & rate probing**.
