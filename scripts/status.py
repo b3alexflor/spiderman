@@ -12,8 +12,8 @@ Reads only — safe to run against a live ingest.
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -49,21 +49,28 @@ def main() -> None:
         tag = "  (deep-links only, CAPTCHA-gated)" if theater.startswith("Regal") else ""
         print(f"  {mapped:3}/{disc:<4} {theater}{tag}")
 
-    # Liveness must come from the FILE, not from captured_at. report.py stamps
-    # captured_at once at pass start (report.py:60), so every row written during a
-    # 25-minute pass carries the same timestamp — using it as a freshness signal
-    # reports "stalled" the entire time the ingest is happily working. The WAL's
-    # mtime is the actual "someone wrote to this DB just now".
+    # Liveness is NOT derivable from the data or the file:
+    #   - captured_at is stamped once at pass start (report.py:60), so every row from
+    #     a 25-minute pass shares one timestamp — it reads "stalled" the whole time.
+    #   - seats.db mtime is useless too: db.connect() runs executescript(SCHEMA) on
+    #     EVERY connect, so this very script bumps it, and so does the API server,
+    #     which reconnects per request while the site polls every 60s.
+    # The only honest answer is whether an ingest process exists.
     last = q("SELECT MAX(captured_at) FROM availability")[0][0]
     if last:
-        print(f"\ncurrent pass started: {last}  (one captured_at per pass, not per fetch)")
+        print(f"\nnewest pass started: {last}  (one captured_at per pass, not per fetch)")
 
-    writes = [p.stat().st_mtime for p in (db.DEFAULT_DB, Path(f"{db.DEFAULT_DB}-wal"))
-              if p.exists()]
-    if writes:
-        age = datetime.now().timestamp() - max(writes)
-        state = "ingest is writing" if age < 120 else "idle — no pass running"
-        print(f"last DB write: {age:.0f}s ago — {state}")
+    try:
+        found = subprocess.run(["pgrep", "-f", "ingest.py"], capture_output=True,
+                               text=True, timeout=5).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        found = None
+    if found is None:
+        print("ingest: could not check (pgrep unavailable)")
+    elif found:
+        print(f"ingest: RUNNING (pid {', '.join(found)}) — data still landing")
+    else:
+        print("ingest: not running — this is the complete dataset until you start a pass")
     conn.close()
 
 
