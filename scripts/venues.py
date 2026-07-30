@@ -36,7 +36,8 @@ VENUES: list[dict] = [
     {"chain": "amc", "name": "AMC Village 7", "slug": "amc-village-7",
      "neighborhood": "East Village", "first_run": True, "slug_confirmed": True},
     {"chain": "amc", "name": "AMC 84th Street 6", "slug": "amc-84th-street-6",
-     "neighborhood": "Upper West Side", "first_run": True, "slug_confirmed": False,
+     "neighborhood": "Upper West Side", "first_run": True, "slug_confirmed": True,
+     # slug confirmed live 2026-07-30 (discovered + fetched a Brand New Day seat map)
      "note": "borderline: on the 83rd-84th block, at/just below the 84th St cutoff"},
 
     # --- Regal (chain adapter: regal.py, TODO — browser-only, anti-bot) ----

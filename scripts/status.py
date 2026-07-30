@@ -49,14 +49,21 @@ def main() -> None:
         tag = "  (deep-links only, CAPTCHA-gated)" if theater.startswith("Regal") else ""
         print(f"  {mapped:3}/{disc:<4} {theater}{tag}")
 
+    # Liveness must come from the FILE, not from captured_at. report.py stamps
+    # captured_at once at pass start (report.py:60), so every row written during a
+    # 25-minute pass carries the same timestamp — using it as a freshness signal
+    # reports "stalled" the entire time the ingest is happily working. The WAL's
+    # mtime is the actual "someone wrote to this DB just now".
     last = q("SELECT MAX(captured_at) FROM availability")[0][0]
     if last:
-        try:
-            age = (datetime.now() - datetime.fromisoformat(last)).total_seconds()
-            moving = "ingest is writing" if age < 180 else "idle — pass finished or stalled"
-            print(f"\nlast seat map: {last}  ({age/60:.1f} min ago — {moving})")
-        except ValueError:
-            print(f"\nlast seat map: {last}")
+        print(f"\ncurrent pass started: {last}  (one captured_at per pass, not per fetch)")
+
+    writes = [p.stat().st_mtime for p in (db.DEFAULT_DB, Path(f"{db.DEFAULT_DB}-wal"))
+              if p.exists()]
+    if writes:
+        age = datetime.now().timestamp() - max(writes)
+        state = "ingest is writing" if age < 120 else "idle — no pass running"
+        print(f"last DB write: {age:.0f}s ago — {state}")
     conn.close()
 
 
