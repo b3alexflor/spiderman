@@ -35,18 +35,50 @@ from adapters.base import SeatStatus
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 
 
+def _cap_per_venue(pairs: list, per_venue: int, *, spread: bool = True) -> list:
+    """Spend the per-venue fetch budget across each venue-day, not just its start.
+
+    `pairs` arrives sorted by start_time, so taking the first N per (venue, day) —
+    the original behaviour, still available with spread=False — spends the whole
+    polite budget on the earliest showings of each day. Over a 3-day --all-amc pass
+    that means every fetch lands on matinees and post-midnight late shows, and the
+    17:00-23:00 prime-time block nobody can outbid you for is never fetched at all.
+
+    spread=True picks `per_venue` showings evenly spaced across each venue-day,
+    always including the first and last, so coverage samples the whole day.
+    """
+    groups: dict = {}
+    for a, s in pairs:
+        groups.setdefault((s.theater, s.start_time[:10]), []).append((a, s))
+    keep = []
+    for g in groups.values():
+        if len(g) <= per_venue:
+            keep.extend(g)
+        elif not spread:
+            keep.extend(g[:per_venue])
+        elif per_venue == 1:
+            keep.append(g[0])
+        else:
+            # evenly spaced indices across the day, endpoints included
+            idx = {round(i * (len(g) - 1) / (per_venue - 1)) for i in range(per_venue)}
+            keep.extend(g[i] for i in sorted(idx))
+    keep.sort(key=lambda p: (p[1].start_time, p[1].theater))
+    return keep
+
+
 def build(venues: list[dict], film: str, date: str, formats: set[str], section: str | None,
           top: int, limit: int | None, persist: bool,
           include_accessible: bool = False, regal_codes: list[str] | None = None,
           html_path: str | None = None, per_venue: int | None = None, days: int = 1,
-          skip_fresh_min: float | None = None) -> str:
+          skip_fresh_min: float | None = None, after: str | None = None,
+          before: str | None = None, spread: bool = True) -> str:
     # ONE Chromium serves every request in the pass (rate.py still gates each
     # navigation); always torn down, even on an early return or a crash.
     session = BrowserSession()
     try:
         return _build(session, venues, film, date, formats, section, top, limit,
                       persist, include_accessible, regal_codes, html_path,
-                      per_venue, days, skip_fresh_min)
+                      per_venue, days, skip_fresh_min, after, before, spread)
     finally:
         session.close()
 
@@ -55,7 +87,8 @@ def _build(session: BrowserSession, venues: list[dict], film: str, date: str,
            formats: set[str], section: str | None, top: int, limit: int | None,
            persist: bool, include_accessible: bool, regal_codes: list[str] | None,
            html_path: str | None, per_venue: int | None, days: int,
-           skip_fresh_min: float | None) -> str:
+           skip_fresh_min: float | None, after: str | None = None,
+           before: str | None = None, spread: bool = True) -> str:
     conn = db.connect() if persist else None
     captured_at = datetime.now().isoformat(timespec="seconds")
     multi = len(venues) > 1
@@ -86,15 +119,13 @@ def _build(session: BrowserSession, venues: list[dict], film: str, date: str,
         if skipped:
             pairs = [(a, s) for a, s in pairs if s.id not in fresh]
             print(f"[report] {skipped} showing(s) snapshotted <{skip_fresh_min:g}m ago — not refetching")
-    if per_venue:  # balanced coverage: soonest N per venue PER DAY
-        seen: dict = {}
-        capped = []
-        for a, s in pairs:
-            k = (s.theater, s.start_time[:10])
-            seen[k] = seen.get(k, 0) + 1
-            if seen[k] <= per_venue:
-                capped.append((a, s))
-        pairs = capped
+    if after or before:
+        pairs = [(a, s) for a, s in pairs
+                 if (not after or s.start_time[11:16] >= after)
+                 and (not before or s.start_time[11:16] <= before)]
+        print(f"[report] time window {after or '--'}..{before or '--'}: {len(pairs)} showing(s)")
+    if per_venue:
+        pairs = _cap_per_venue(pairs, per_venue, spread=spread)
     if limit:
         pairs = pairs[:limit]
     if not pairs:
@@ -211,7 +242,14 @@ if __name__ == "__main__":
     ap.add_argument("--top", type=int, default=5, help="top seats per showing")
     ap.add_argument("--limit", type=int, default=None, help="cap total showings fetched")
     ap.add_argument("--per-venue", type=int, default=None,
-                    help="cap showings fetched per venue (balanced coverage for --all-amc)")
+                    help="cap showings fetched per venue PER DAY (spread across the day)")
+    ap.add_argument("--after", default=None, metavar="HH:MM",
+                    help="only showings at/after this local time (e.g. --after 17:00 for prime time)")
+    ap.add_argument("--before", default=None, metavar="HH:MM",
+                    help="only showings at/before this local time")
+    ap.add_argument("--soonest", action="store_true",
+                    help="spend --per-venue on the day's EARLIEST showings instead of "
+                         "spreading across it (the pre-2026-07-30 behaviour)")
     ap.add_argument("--venue", default="amc-lincoln-square-13",
                     help="comma-separated AMC venue slugs (default Lincoln Square)")
     ap.add_argument("--all-amc", action="store_true",
@@ -247,7 +285,8 @@ if __name__ == "__main__":
     report = build(venues, args.film, args.date, formats, args.section,
                    args.top, args.limit, persist=not args.no_db,
                    include_accessible=args.include_accessible, regal_codes=regal_codes,
-                   html_path=html_path, per_venue=args.per_venue, days=args.days)
+                   html_path=html_path, per_venue=args.per_venue, days=args.days,
+                   after=args.after, before=args.before, spread=not args.soonest)
     print("\n" + report)
 
     if args.save:

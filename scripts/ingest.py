@@ -46,7 +46,8 @@ def one_pass(args) -> None:
     # staged launch (fast pass, then deep pass) from refetching the same seat maps.
     report.build(venues, args.film, date, formats, None, top=5, limit=args.limit,
                  persist=True, regal_codes=regal, html_path=None,
-                 per_venue=args.per_venue, days=args.days, skip_fresh_min=10)
+                 per_venue=args.per_venue, days=args.days, skip_fresh_min=10,
+                 after=args.after, before=args.before, spread=not args.soonest)
     print("[ingest] pass done", flush=True)
 
 
@@ -59,6 +60,12 @@ if __name__ == "__main__":
     ap.add_argument("--venue", default="amc-lincoln-square-13")
     ap.add_argument("--all-amc", action="store_true")
     ap.add_argument("--per-venue", type=int, default=4)
+    ap.add_argument("--after", default=None, metavar="HH:MM",
+                    help="only showings at/after this local time (e.g. 17:00)")
+    ap.add_argument("--before", default=None, metavar="HH:MM")
+    ap.add_argument("--soonest", action="store_true",
+                    help="spend --per-venue on each day's earliest showings instead "
+                         "of spreading across the day")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--regal", nargs="?", const="all", default=None)
     ap.add_argument("--once", action="store_true", help="one pass then exit")
