@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import db
+import film as film_cfg
 import query
 import report_html
 
@@ -64,7 +65,7 @@ def _query_form(conn, film, sel_dates, sel_venues, sel_formats) -> str:
 
 def _render(qs) -> bytes:
     conn = db.connect()
-    film = qs.get("film", ["The Odyssey"])[0]
+    film = qs.get("film", [film_cfg.FILM])[0]
     sel_dates = qs.get("date")
     sel_venues = qs.get("venue")
     sel_formats = qs.get("format")

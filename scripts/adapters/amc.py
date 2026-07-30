@@ -20,12 +20,14 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import date as _date
 from pathlib import Path
 from typing import Sequence
 
 # Allow running this file directly (python scripts/adapters/amc.py ...)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import film as film_cfg
 import rate
 from browser import BrowserSession
 from adapters.base import Seat, SeatStatus, SeatType, Showing
@@ -204,15 +206,30 @@ def auditorium_for(fmt: str) -> str:
     }.get(fmt, "Standard")
 
 
+def slug_matches(fslug: str | None, target: str,
+                 include_events: bool = film_cfg.MATCH_EVENT_LISTINGS) -> bool:
+    """Does a harvested film slug refer to our film?
+
+    AMC lists special screenings as separate films whose slug EXTENDS the base one
+    ("spider-man-brand-new-day-dolby-opening-night-fan-event"). Those are genuine
+    showings with real seat maps, so by default a base-slug prefix counts as a
+    match; see film.MATCH_EVENT_LISTINGS for when to turn that off.
+    """
+    if not fslug:
+        return False
+    return fslug == target or (include_events and fslug.startswith(f"{target}-"))
+
+
 def records_to_showings(records: list[dict], film: str, date: str,
                         theater_name: str = THEATER_NAME,
-                        theater_slug: str = THEATER_SLUG) -> list[Showing]:
+                        theater_slug: str = THEATER_SLUG,
+                        include_events: bool = film_cfg.MATCH_EVENT_LISTINGS) -> list[Showing]:
     """Turn harvested link records into de-duped Showings for `film`. Pure/tested."""
     target = film_slug(film)
     out: dict[str, Showing] = {}
     for r in records:
         fslug, fmt = parse_describedby(r.get("describedby", ""), theater_slug)
-        if fslug != target:
+        if not slug_matches(fslug, target, include_events):
             continue  # a different movie's showtime
         sid = r["id"]
         if sid in out:
@@ -254,6 +271,32 @@ class AMCAdapter:
 
     def discover(self, film: str, date: str, *, dump: bool = False) -> Sequence[Showing]:
         """Load this venue's showtimes page for `date`, return `film`'s showings."""
+        records = self._harvest(date, dump=dump)
+        showings = records_to_showings(records, film, date,
+                                       self.venue["name"], self.venue["slug"])
+        print(f"[amc:{self.venue['slug']}] discover: {len(records)} showtime links, "
+              f"{len(showings)} match {film!r}")
+        return showings
+
+    def list_films(self, date: str, *, dump: bool = False) -> list[tuple[str, int]]:
+        """Every film slug playing this venue on `date`, with its showtime count.
+
+        Repurposing tool: the engine matches films by AMC's own slug, so before
+        pointing it at a new title you need the slug AMC actually publishes (it
+        is not always the marketing title slugified). Descending by count.
+        """
+        counts: dict[str, int] = {}
+        for r in self._harvest(date, dump=dump):
+            fslug, _ = parse_describedby(r.get("describedby", ""), self.venue["slug"])
+            if fslug:
+                counts[fslug] = counts.get(fslug, 0) + 1
+        return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+    def _harvest(self, date: str, *, dump: bool = False) -> list[dict]:
+        """Load the showtimes page for `date` and return raw link records.
+
+        Shared by discover() (filter to one film) and list_films() (what's on).
+        """
         slug = self.venue["slug"]
         url = f"{self.showtimes_url}?date={date}"
         self.throttle.before_request(url)
@@ -283,12 +326,7 @@ class AMCAdapter:
             records = page.evaluate(_HARVEST_JS)
         finally:
             page.close()
-
-        showings = records_to_showings(records, film, date,
-                                       self.venue["name"], slug)
-        print(f"[amc:{slug}] discover: {len(records)} showtime links, "
-              f"{len(showings)} match {film!r}")
-        return showings
+        return records
 
     def fetch_seats(self, showing: Showing, *, recon: bool = False) -> Sequence[Seat]:
         """Load the showing's /seats page and return its live seat map.
@@ -374,10 +412,23 @@ class AMCAdapter:
 
 
 if __name__ == "__main__":
+    def _arg(flag: str, default: str) -> str:
+        return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else default
+
     a = AMCAdapter()
-    date = "2026-07-17"
+    date = _arg("--date", _date.today().isoformat())
     dump = "--dump" in sys.argv
-    showings = a.discover("The Odyssey", date, dump=dump)
+
+    # --films: every film playing this venue + the slug AMC publishes for it. Run
+    # this before repointing film.py at a new title.
+    if "--films" in sys.argv:
+        target = film_slug(_arg("--film", film_cfg.FILM))
+        print(f"[amc:{a.venue['slug']}] films on {date} (* = matches {target!r}):")
+        for slug, n in a.list_films(date, dump=dump):
+            print(f"  {'*' if slug_matches(slug, target) else ' '} {n:3}  {slug}")
+        sys.exit(0)
+
+    showings = a.discover(_arg("--film", film_cfg.FILM), date, dump=dump)
     for sh in showings:
         print(f"[amc] {sh.fmt:11} {sh.auditorium:24} {sh.start_time}  {sh.checkout_url}")
     if "--recon" in sys.argv and showings:

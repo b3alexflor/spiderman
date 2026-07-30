@@ -1,15 +1,16 @@
-"""Best-available-seat report for today's Odyssey showings at AMC Lincoln Square.
+"""Best-available-seat report for today's Brand New Day showings at AMC Lincoln Square.
 
 Discovers showings, fetches each seat map, ranks available seats by geometry +
 format/section, and prints (optionally saves) a report + the single overall best
 seat. Persists seats + an availability snapshot to SQLite unless --no-db.
 
-Politeness: defaults to --format IMAX_70MM so a default run only fetches the trophy
-showings (each fetch is throttled to AMC's 8s floor). Widen deliberately.
+Politeness: defaults to film.DEFAULT_FORMATS (the premium houses) so a default run
+only fetches the trophy showings — each fetch is throttled to AMC's 15s floor, and
+this film has 42 showtimes/day at Lincoln Square alone. Widen deliberately.
 
-    python scripts/report.py                                  # IMAX 70mm, all of them
-    python scripts/report.py --format IMAX_70MM,DOLBY --top 8
-    python scripts/report.py --format IMAX_LASER --section Regular --limit 3
+    python scripts/report.py                                  # IMAX Laser + Dolby
+    python scripts/report.py --format IMAX_LASER --top 8
+    python scripts/report.py --format STANDARD --section Regular --limit 3
     python scripts/report.py --no-db --limit 2                # quick, no persistence
 """
 from __future__ import annotations
@@ -23,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import analyze
 import db
+import film as film_cfg
 import rate
 import venues as venues_mod
 from browser import BrowserSession
@@ -200,11 +202,11 @@ def _build(session: BrowserSession, venues: list[dict], film: str, date: str,
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--film", default="The Odyssey")
+    ap.add_argument("--film", default=film_cfg.FILM)
     ap.add_argument("--date", default=None, help="start date YYYY-MM-DD (default: today)")
     ap.add_argument("--days", type=int, default=1, help="number of days to plan across (e.g. 3)")
-    ap.add_argument("--format", default="IMAX_70MM",
-                    help="comma-separated FORMAT_WEIGHT keys (default IMAX_70MM)")
+    ap.add_argument("--format", default=film_cfg.DEFAULT_FORMATS,
+                    help=f"comma-separated FORMAT_WEIGHT keys (default {film_cfg.DEFAULT_FORMATS})")
     ap.add_argument("--section", default=None, help="filter by seat section/tier")
     ap.add_argument("--top", type=int, default=5, help="top seats per showing")
     ap.add_argument("--limit", type=int, default=None, help="cap total showings fetched")

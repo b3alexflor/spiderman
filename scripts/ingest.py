@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import report
+import film as film_cfg
 import venues as venues_mod
 from adapters.regal import VENUES as REGAL_VENUES
 
@@ -51,7 +52,7 @@ def one_pass(args) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--film", default="The Odyssey")
+    ap.add_argument("--film", default=film_cfg.FILM)
     ap.add_argument("--date", default=None, help="start date (default: today)")
     ap.add_argument("--days", type=int, default=1)
     ap.add_argument("--format", default="IMAX_70MM,DOLBY,IMAX_LASER,PRIME,STANDARD")

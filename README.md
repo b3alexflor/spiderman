@@ -1,8 +1,13 @@
-# odyssey-seats
+# spiderman
 
-Finds every Manhattan movie theater screening **_The Odyssey_** (70mm / IMAX /
-Dolby), reads the live seat maps, and ranks the best available seats by geometry +
-format — served as a small website over a JSON API.
+Finds every Manhattan movie theater screening **_Spider-Man: Brand New Day_** (IMAX
+with Laser / Dolby / standard), reads the live seat maps, and ranks the best
+available seats by geometry + format — served as a small website over a JSON API.
+
+Repointed from [AMCpull](https://github.com/b3alexflor/AMCpull), which did the same
+for *The Odyssey*; the scraping substrate is film-agnostic, so retargeting is one
+constant (`scripts/film.py`) plus the site's `<h1>`. See **Repointing at another
+film** below.
 
 ## Preface — the point behind the joke
 
@@ -10,7 +15,7 @@ On its face this is a whimsical project: an over-engineered way to grab a good s
 for one movie. That's the joke, and it's meant to be. But the reason it's worth
 building is the **dual use** hiding inside such an innocent-looking function.
 
-To rank a seat for *The Odyssey* at AMC Lincoln Square, you have to solve the hard
+To rank a seat for *Brand New Day* at AMC Lincoln Square, you have to solve the hard
 part first: reliably driving each chain's booking flow, intercepting the seat-map
 JSON, defeating the polite-scraping problems (rate floors, anti-bot fronts,
 per-host serialization, screenshot/vision fallback), and normalizing it all into a
@@ -35,7 +40,7 @@ doesn't.)
 ## Quick start
 
 ```bash
-git clone <your-repo-url> odyssey-seats && cd odyssey-seats
+git clone https://github.com/b3alexflor/spiderman.git && cd spiderman
 ./run.sh
 ```
 
@@ -112,7 +117,7 @@ Seat quality is computed, not crowd-sourced:
 - **Screen geometry** — center horizontally, ~⅔ back, penalize front rows and
   extreme viewing angles. Pure math from seat x/y + screen position.
 - **Format / section** — weight by section type (IMAX center, premium/recliner,
-  loveseat) and format (70mm IMAX vs standard).
+  loveseat) and format (IMAX with Laser vs Dolby vs standard).
 
 (Availability snapshots tell us what's *free*; geometry + section tell us what's
 *good*.)
@@ -129,7 +134,7 @@ layer. Adapters are independently buildable, testable, and runnable.
 ```
 adapters/
   base.py        -- Adapter protocol: discover() -> Showing[], fetch_seats(Showing) -> Seat[]
-  amc.py         -- START HERE: AMC (Lincoln Square 70mm IMAX)
+  amc.py         -- START HERE: AMC (Lincoln Square IMAX + Dolby)
   regal.py       -- Regal (regmovies.com getShowtimes JSON + checkout seat XHR)
   <indies>.py    -- Metrograph, Film Forum, Angelika, Paris (bespoke / vision fallback)
 snapshot.py      -- for each adapter: discover -> fetch_seats -> DB + archival screenshot
@@ -187,7 +192,9 @@ We're a personal-use, low-volume scraper and treat it that way in code
 ## Status
 
 **AMC = full pipeline** (discover → seats → rank → report → visualization), working
-and verified live across venues. **Regal = discovery + deep-links only**: Regal
+and verified live on *Brand New Day* 2026-07-30: 42 showings discovered at Lincoln
+Square (incl. the Dolby opening-night fan event), 6 seat maps fetched, ranked, and
+served. Verified across venues on the previous film. **Regal = discovery + deep-links only**: Regal
 serves showtimes publicly but gates seat availability behind a Cloudflare Turnstile
 CAPTCHA on its Vista booking backend, which we won't bypass (detect-and-back-off,
 not evade). So for Regal the report emits a **link you click yourself** to pick
@@ -205,10 +212,10 @@ python -m playwright install chromium
 **Best-seat report** (the main product — `scripts/report.py`):
 
 ```bash
-python scripts/report.py                              # AMC Lincoln Square, IMAX 70mm, today (terminal)
+python scripts/report.py                              # AMC Lincoln Square, IMAX Laser + Dolby, today
 python scripts/report.py --days 3 --html              # plan 3 days out, as a web page (day tabs)
 python scripts/report.py --all-amc --days 3 --per-venue 4 --html   # ALL 7 AMCs × 3 days, ≤4 soonest each/day
-python scripts/report.py --format IMAX_70MM,DOLBY,IMAX_LASER --top 8
+python scripts/report.py --format IMAX_LASER,DOLBY,STANDARD --top 8
 python scripts/report.py --venue amc-empire-25        # a different AMC (slug from venues.py)
 python scripts/report.py --section Regular            # seating-section filter
 python scripts/report.py --include-accessible         # keep accessible/companion seats in ranking
@@ -257,7 +264,8 @@ python scripts/report_html.py <capture.json> reports/seatmap.html
 **Per-adapter tools** (discovery / recon):
 
 ```bash
-python scripts/adapters/amc.py --discover             # list today's AMC Odyssey showings
+python scripts/adapters/amc.py --discover             # list today's AMC showings of the film
+python scripts/adapters/amc.py --films                # EVERY film playing + AMC's slug for it
 python scripts/adapters/amc.py --dump                 # + save rendered showtimes HTML to recon/
 python scripts/adapters/amc.py --recon                # + fetch one showing's seats (saves HTML)
 python scripts/adapters/regal.py --dump               # list Regal performances (Essex) + dump
@@ -271,8 +279,42 @@ python scripts/snapshot.py --at 2026-07-17T20:00:00   # discover→fetch→DB av
 python scripts/probe.py "https://www.amctheatres.com/movie-theatres/new-york-city/amc-lincoln-square-13/showtimes"
 ```
 
-Default film/date are `The Odyssey` / today; override with `--film` / `--date` on
+Default film/date are `film.FILM` / today; override with `--film` / `--date` on
 report.py and snapshot.py.
+
+## Repointing at another film
+
+The engine matches AMC showtimes on **AMC's own published film slug**, so retargeting
+is two steps, and the first one is a live lookup — don't guess the slug:
+
+```bash
+python scripts/adapters/amc.py --films                # what's playing + the real slugs
+python scripts/adapters/amc.py --films --date 2026-08-14
+```
+
+Then edit **`scripts/film.py`** (`FILM`, and `DEFAULT_FORMATS` if the new title runs
+in different houses) and the `<h1>` + `FILM` constant in `web/index.html`. Everything
+else — ingest, report, snapshot, API, site — reads its default from `film.py`.
+
+Two traps this repo already hit, both encoded in `film.py`:
+
+- **Special screenings are separate films.** AMC lists them under a slug that
+  *extends* the base one (`spider-man-brand-new-day-dolby-opening-night-fan-event`).
+  An exact-match filter silently drops them, so `slug_matches()` accepts a base-slug
+  prefix (`MATCH_EVENT_LISTINGS`). On this film that is 41 + 1 showtimes/day at
+  Lincoln Square.
+- **Format defaults are per-release.** The Odyssey build defaulted to
+  `--format IMAX_70MM`; *Brand New Day* has no 70mm print, so that default matched
+  **zero** showings and the report looked broken. `film.DEFAULT_FORMATS` is now
+  `IMAX_LASER,DOLBY`.
+
+Finally, regenerate the bundled demo dataset so a fresh clone doesn't show the
+previous movie until its first live ingest finishes:
+
+```bash
+python scripts/ingest.py --once --days 1 --per-venue 3 --regal all
+python scripts/export_seed.py --max-amc 3      # seats.db -> samples/seed.json
+```
 
 ## License
 

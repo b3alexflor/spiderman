@@ -7,9 +7,9 @@ Purpose here: feed the per-chain adapters. Each adapter iterates the VENUES whos
 `chain` it owns. AMC venues share one discovery pattern (only `slug` differs), so
 amc.py should take a venue instead of hardcoding Lincoln Square.
 
-`first_run` = plays wide releases like *The Odyssey* (the multiplexes). Arthouses
-run rep/indie programming and are `first_run=False` — irrelevant to the Odyssey
-goal, kept for when the project generalizes beyond one film.
+`first_run` = plays wide releases like *Spider-Man: Brand New Day* (the
+multiplexes). Arthouses run rep/indie programming and are `first_run=False` —
+irrelevant to a wide-release seat hunt, kept because the roster is film-agnostic.
 
 CAUTION: AMC `slug`s below are inferred from the Lincoln Square pattern
 (amc-<name>) and NOT all confirmed. A wrong slug 404s on discover — self-checking.
@@ -24,7 +24,7 @@ VENUES: list[dict] = [
     # --- AMC (chain adapter: amc.py) --------------------------------------
     {"chain": "amc", "name": "AMC Lincoln Square 13", "slug": "amc-lincoln-square-13",
      "neighborhood": "Upper West Side", "first_run": True, "trophy": True,
-     "slug_confirmed": True},  # confirmed live 2026-07-17 (70mm/Laser/Dolby Odyssey)
+     "slug_confirmed": True},  # confirmed live 2026-07-30 (41 Brand New Day showtimes)
     {"chain": "amc", "name": "AMC Empire 25", "slug": "amc-empire-25",
      "neighborhood": "Times Square", "first_run": True, "slug_confirmed": True},
     {"chain": "amc", "name": "AMC 34th Street 14", "slug": "amc-34th-street-14",
@@ -58,7 +58,7 @@ VENUES: list[dict] = [
     {"chain": "other", "name": "The Cinemas at Fulton Market", "first_run": True,
      "neighborhood": "Seaport", "note": "fka iPic; bought by Blue Fox 2026, no dining"},
 
-    # --- Arthouse / independent (first_run=False: won't screen The Odyssey) -
+    # --- Arthouse / independent (first_run=False: won't screen a tentpole) ---
     {"chain": "indie", "name": "New Plaza Cinema", "first_run": False},
     {"chain": "indie", "name": "Film at Lincoln Center", "first_run": False},
     {"chain": "indie", "name": "Paris Theater (Netflix)", "first_run": False},
@@ -82,13 +82,17 @@ def for_chain(chain: str, first_run_only: bool = True) -> list[dict]:
             if v["chain"] == chain and (v.get("first_run") or not first_run_only)]
 
 
-def odyssey_targets() -> list[dict]:
+def first_run_targets() -> list[dict]:
     """Venues that plausibly screen a wide release (AMC + Regal + bespoke multiplexes)."""
     return [v for v in VENUES if v.get("first_run")]
 
 
+# Original name from the Odyssey build; kept so older callers/notebooks don't break.
+odyssey_targets = first_run_targets
+
+
 if __name__ == "__main__":
-    print(f"{len(VENUES)} venues; {len(odyssey_targets())} first-run (Odyssey candidates)")
+    print(f"{len(VENUES)} venues; {len(first_run_targets())} first-run (wide-release candidates)")
     for c in ("amc", "regal", "alamo", "other", "indie"):
         vs = [v["name"] for v in VENUES if v["chain"] == c]
         print(f"  {c:6} ({len(vs)}): {', '.join(vs)}")

@@ -3,24 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Odyssey — where to sit</title>
+<title>Spider-Man: Brand New Day — where to sit</title>
 <style>
-/* Odyssey trailer palette — sea holds the structure, fire marks what's OPEN.
-   Parchment (light): Sunlit Sand -> Firelight Umber heat ramp on poster paper.
-   Midnight (dark):   ember ramp on Midnight Sea; taken = Storm Teal block.
-   Seat-map colors are validator-checked (CVD + normal-vision separation, ramp
-   monotonicity) against each mode's surface — re-run if you touch them. */
+/* Spider-Man palette — web-red is the accent, the heat ramp marks what's OPEN.
+   Only the IDENTITY layer (--spot accent, --acc link/detail) was repointed from
+   the original Odyssey build to red/web-blue. The seat-map ramp
+   (--heat-lo/--heat-hi/--taken) and both surfaces are UNCHANGED on purpose:
+   those were validator-checked (CVD + normal-vision separation, ramp
+   monotonicity) against each mode's surface. Re-run that validator before
+   touching the ramp; swapping it for costume red/blue silently breaks the
+   colour-blind separation that makes an open seat readable. */
 :root{
  --paper:#efede4;--panel:#f6f3ea;--ink:#0b171b;--ink-2:#5b6666;--line:#d3ccbb;--rule:#0b171b;
- --spot:#8f3e1e;--spot-deep:#6f2f15;--spot-ink:#f6efe3;
- --heat-lo:#b39c7b;--heat-hi:#3c220f;--taken:#d9d5c9;--acc:#3a484e;
+ --spot:#a4232b;--spot-deep:#7d1a20;--spot-ink:#f6efe3;
+ --heat-lo:#b39c7b;--heat-hi:#3c220f;--taken:#d9d5c9;--acc:#1f3d63;
  --display:Baskerville,"Big Caslon","Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
  --body:"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
 @media(prefers-color-scheme:dark){:root{
  --paper:#0b171b;--panel:#1f2b2e;--ink:#efede4;--ink-2:#8fa0a0;--line:#2c3a40;--rule:#c4baa6;
- --spot:#cc6633;--spot-deep:#e08347;--spot-ink:#0b171b;
- --heat-lo:#7e4c2f;--heat-hi:#d3743e;--taken:#2a3a40;--acc:#7fb0bd;}}
+ --spot:#e2555c;--spot-deep:#ef7a80;--spot-ink:#0b171b;
+ --heat-lo:#7e4c2f;--heat-hi:#d3743e;--taken:#2a3a40;--acc:#8fb6e8;}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.5}
 .wrap{max-width:940px;margin:0 auto;padding:clamp(16px,3.5vw,44px)}
@@ -88,8 +91,8 @@ footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line);color:v
 </head>
 <body>
 <div class="wrap">
-  <div class="mast-top"><span>Manhattan Repertory</span><span id="src">seats.db</span></div>
-  <h1>The Odyssey</h1>
+  <div class="mast-top"><span>Manhattan Web-Slinger</span><span id="src">seats.db</span></div>
+  <h1>Brand New Day</h1>
   <p class="strap" id="strap">Where to sit — loading…</p>
 
   <div class="controls">
@@ -115,6 +118,10 @@ footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line);color:v
 </div>
 
 <script>
+// Mirror of scripts/film.py:FILM — the API defaults to the same title, this
+// just keeps the query explicit. Change both when repointing at a new film.
+const FILM = "Spider-Man: Brand New Day";
+const FQ = "film=" + encodeURIComponent(FILM);
 const $ = s => document.querySelector(s);
 const FMT = {IMAX_70MM:"70mm",DOLBY:"Dolby",IMAX_LASER:"IMAX Laser",IMAX_DIGITAL:"IMAX",PRIME:"Prime",STANDARD:"Std"};
 const FMTLONG = {IMAX_70MM:"IMAX · 70mm film",DOLBY:"Dolby Cinema",IMAX_LASER:"IMAX with Laser",IMAX_DIGITAL:"IMAX",PRIME:"Prime",STANDARD:"Standard"};
@@ -125,7 +132,7 @@ const ampm = t => {let h=+t.slice(11,13),m=t.slice(14,16),a=h<12?"a":"p";return 
 const wd = d => new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
 
 async function boot(){
-  const m = await get("/api/meta?film=The%20Odyssey");
+  const m = await get("/api/meta?"+FQ);
   // day tabs
   $("#days").innerHTML = m.dates.map((d,i)=>`<button class="daytab${i?"":" on"}" data-d="${d}">${wd(d)}</button>`).join("");
   state.day = m.dates[0] || null;
@@ -138,7 +145,7 @@ async function boot(){
 }
 
 async function load(){
-  const q = new URLSearchParams({film:"The Odyssey"});
+  const q = new URLSearchParams({film:FILM});
   if(state.venue) q.append("venue", state.venue);
   state.shows = await get("/api/showings?"+q);
   render();
@@ -146,7 +153,7 @@ async function load(){
 }
 
 async function renderRegal(data){
-  const r = data || await get("/api/regal?film=The%20Odyssey");
+  const r = data || await get("/api/regal?"+FQ);
   const el = $("#regal");
   if(!r.length){ el.innerHTML = ""; return; }
   const rows = r.filter(s=>!state.day || s.start_time.slice(0,10)===state.day)
@@ -247,11 +254,11 @@ $("#venue").addEventListener("change", e=>{state.venue=e.target.value;load();});
 // any open seat map, so a no-op tick must stay a no-op).
 async function refreshTick(){
   try{
-    const m = await get("/api/meta?film=The%20Odyssey");
-    const q = new URLSearchParams({film:"The Odyssey"});
+    const m = await get("/api/meta?"+FQ);
+    const q = new URLSearchParams({film:FILM});
     if(state.venue) q.append("venue", state.venue);
     const shows = await get("/api/showings?"+q);
-    const regal = await get("/api/regal?film=The%20Odyssey");
+    const regal = await get("/api/regal?"+FQ);
     const sig = JSON.stringify([m.dates, m.formats, m.venues, shows, regal]);
     if(sig === state.sig) return;
     state.sig = sig;

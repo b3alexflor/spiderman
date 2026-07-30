@@ -22,16 +22,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import analyze
 import db
+import film as film_cfg
 import query
 from adapters.base import FORMAT_WEIGHT, SeatStatus
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 app = FastAPI(title="Manhattan Seat Finder", version="0.1",
-              description="Query Odyssey seat availability + best-seat rankings from seats.db.")
+              description=f"Query {film_cfg.FILM} seat availability + best-seat rankings from seats.db.")
 
 
 @app.get("/api/meta")
-def meta(film: str = "The Odyssey", include_past: bool = False):
+def meta(film: str = film_cfg.FILM, include_past: bool = False):
     c = db.connect()
     try:
         since = None if include_past else query.now_ny()
@@ -43,7 +44,7 @@ def meta(film: str = "The Odyssey", include_past: bool = False):
 
 
 @app.get("/api/showings")
-def showings(film: str = "The Odyssey",
+def showings(film: str = film_cfg.FILM,
              date: list[str] | None = Query(None),
              venue: list[str] | None = Query(None),
              format: list[str] | None = Query(None),
@@ -76,7 +77,7 @@ def showings(film: str = "The Odyssey",
 
 
 @app.get("/api/regal")
-def regal(film: str = "The Odyssey", date: list[str] | None = Query(None),
+def regal(film: str = film_cfg.FILM, date: list[str] | None = Query(None),
           include_past: bool = False):
     """Regal showings — deep-links only (seats are CAPTCHA-gated; the human picks)."""
     c = db.connect()

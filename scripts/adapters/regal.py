@@ -18,12 +18,14 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import date as _date
 from pathlib import Path
 from typing import Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import rate
+import film as film_cfg
 from browser import BrowserSession
 from adapters.base import Seat, Showing
 
@@ -199,6 +201,6 @@ class RegalAdapter:
 
 if __name__ == "__main__":
     a = RegalAdapter()
-    showings = a.discover("The Odyssey", "2026-07-17", dump="--dump" in sys.argv)
+    showings = a.discover(film_cfg.FILM, _date.today().isoformat(), dump="--dump" in sys.argv)
     for s in showings:
         print(f"  {s.fmt:12} {s.auditorium:16} {s.start_time[11:16]}  {s.id}")

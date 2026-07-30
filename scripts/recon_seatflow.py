@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date as _date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import rate
+import film as film_cfg
 from adapters import amc
 
 RECON_DIR = Path(__file__).resolve().parent / "recon"
@@ -33,7 +35,7 @@ def pick_showtime(explicit: str | None) -> tuple[str, str]:
     if explicit:
         return explicit, amc.CHECKOUT_URL.format(showtime_id=explicit)
     a = amc.AMCAdapter()
-    showings = a.discover("The Odyssey", "2026-07-17")
+    showings = a.discover(film_cfg.FILM, _date.today().isoformat())
     imax = [s for s in showings if s.fmt == "IMAX_70MM"] or showings
     if not imax:
         raise SystemExit("no showings discovered")

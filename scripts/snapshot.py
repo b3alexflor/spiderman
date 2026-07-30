@@ -1,6 +1,6 @@
 """Snapshot runner: for each adapter, discover -> fetch_seats -> DB + screenshot.
 
-    python scripts/snapshot.py --film "The Odyssey" --date 2026-07-17 --at <ISO>
+    python scripts/snapshot.py --date 2026-07-31 --at <ISO>   # --film defaults to film.py
 
 `--at` is the capture timestamp written to the availability time series. We pass it
 in explicitly rather than reading a clock here, so runs are reproducible/testable.
@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import db  # noqa: E402
+import film as film_cfg
 from adapters.amc import AMCAdapter  # noqa: E402
 
 ADAPTERS = [AMCAdapter()]  # add regal, indies as they're built
@@ -39,7 +40,7 @@ def run(film: str, date: str, captured_at: str) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--film", default="The Odyssey")
+    ap.add_argument("--film", default=film_cfg.FILM)
     ap.add_argument("--date", default="2026-07-17")
     ap.add_argument("--at", required=True, help="capture timestamp, ISO 8601")
     args = ap.parse_args()
