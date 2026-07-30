@@ -188,13 +188,24 @@ We're a personal-use, low-volume scraper and treat it that way in code
   personal-use only. Don't hammer them.
 - **Geometry needs screen position** — most seat APIs give x/y; IMAX vs standard
   auditorium geometry differs, so calibrate per auditorium.
+- **Scores rank seats, not showtimes.** A near-empty 23:45 show scores highest
+  because the ranker has the whole ideal zone to choose from. A high score means
+  "the best available seat here is excellent", not "this is a good showtime".
+- **Don't trust `ingest.log` for liveness, and don't trust `seats.db`'s mtime
+  either.** `captured_at` is stamped once per pass, and `db.connect()` runs
+  `executescript(SCHEMA)` on every connect — so the API server bumps the file's
+  mtime on every request while the site polls each minute. That mtime tracks
+  *readers*, not writers. `scripts/status.py` checks for a live ingest process,
+  which is the only honest signal.
 
 ## Status
 
 **AMC = full pipeline** (discover → seats → rank → report → visualization), working
-and verified live on *Brand New Day* 2026-07-30: 42 showings discovered at Lincoln
-Square (incl. the Dolby opening-night fan event), 6 seat maps fetched, ranked, and
-served. Verified across venues on the previous film. **Regal = discovery + deep-links only**: Regal
+and verified live on *Brand New Day* over the 2026-07-30 opening weekend: **180
+showings mapped, 22,925 seats**, all 7 Manhattan AMCs, 21 prime-time (17:00-23:00)
+showings on each of Thu/Fri/Sat/Sun — including the Dolby opening-night fan event,
+which AMC lists as a separate film. Every AMC venue slug in `venues.py` is now
+confirmed live. **Regal = discovery + deep-links only**: Regal
 serves showtimes publicly but gates seat availability behind a Cloudflare Turnstile
 CAPTCHA on its Vista booking backend, which we won't bypass (detect-and-back-off,
 not evade). So for Regal the report emits a **link you click yourself** to pick
@@ -214,7 +225,9 @@ python -m playwright install chromium
 ```bash
 python scripts/report.py                              # AMC Lincoln Square, IMAX Laser + Dolby, today
 python scripts/report.py --days 3 --html              # plan 3 days out, as a web page (day tabs)
-python scripts/report.py --all-amc --days 3 --per-venue 4 --html   # ALL 7 AMCs × 3 days, ≤4 soonest each/day
+python scripts/report.py --all-amc --days 3 --per-venue 4 --html   # ALL 7 AMCs × 3 days, 4 spread across each day
+python scripts/report.py --all-amc --after 17:00 --per-venue 3     # PRIME TIME only (see the trap below)
+python scripts/report.py --after 17:00 --before 21:00 --top 8      # aim the fetch budget at a window
 python scripts/report.py --format IMAX_LASER,DOLBY,STANDARD --top 8
 python scripts/report.py --venue amc-empire-25        # a different AMC (slug from venues.py)
 python scripts/report.py --section Regular            # seating-section filter
@@ -224,7 +237,7 @@ python scripts/report.py --no-db --save --limit 3     # skip DB, save text repor
 ```
 
 **Full Manhattan run:** `--all-amc` fetches a seat map per showing (throttled ~15s
-each), so cap it with `--per-venue N` (balanced coverage) or `--limit N` — otherwise
+each), so cap it with `--per-venue N` (spread across each venue-day) or `--limit N` — otherwise
 all venues × all formats is 100+ fetches (25+ min, and AMC's Cloudflare may start
 challenging; challenged showings show as "no data" and are skipped, not fatal).
 Narrow with `--format` too. `--all-amc --per-venue 4 --regal all --html` is a good
@@ -275,6 +288,8 @@ python scripts/venues.py                              # print the Manhattan venu
 **Raw pipeline & ops**:
 
 ```bash
+python scripts/status.py                              # what's in seats.db + is an ingest running
+python scripts/export_seed.py --max-amc 3             # freeze seats.db -> samples/seed.json
 python scripts/snapshot.py --at 2026-07-17T20:00:00   # discover→fetch→DB availability snapshot
 python scripts/probe.py "https://www.amctheatres.com/movie-theatres/new-york-city/amc-lincoln-square-13/showtimes"
 ```
@@ -296,7 +311,9 @@ Then edit **`scripts/film.py`** (`FILM`, and `DEFAULT_FORMATS` if the new title 
 in different houses) and the `<h1>` + `FILM` constant in `web/index.html`. Everything
 else — ingest, report, snapshot, API, site — reads its default from `film.py`.
 
-Two traps this repo already hit, both encoded in `film.py`:
+Three traps this repo already hit. All three are **fixed**; they are documented
+because each one failed *silently* — the scraper reported success while returning
+the wrong thing, so none of them showed up until the output was actually read:
 
 - **Special screenings are separate films.** AMC lists them under a slug that
   *extends* the base one (`spider-man-brand-new-day-dolby-opening-night-fan-event`).
@@ -307,6 +324,20 @@ Two traps this repo already hit, both encoded in `film.py`:
   `--format IMAX_70MM`; *Brand New Day* has no 70mm print, so that default matched
   **zero** showings and the report looked broken. `film.DEFAULT_FORMATS` is now
   `IMAX_LASER,DOLBY`.
+- **`--per-venue N` used to mean the day's *earliest* N.** `pairs` is sorted by
+  start time, and the cap took the head of the list, so a 3-day `--all-amc` pass
+  spent its entire 84-fetch budget on matinees and post-midnight late shows: the
+  latest seat map fetched was 14:30 on day 1, 12:30 on day 2, 09:30 on day 3, and
+  the 17:00-23:00 prime-time block — **138 of that day's 263 discovered showings** —
+  was never fetched at all. For a seat finder that is exactly backwards; opening
+  weekend evenings are the showings worth ranking. `_cap_per_venue()` now spreads
+  the budget evenly across each venue-day, endpoints included (12 showings
+  12:00-23:00, budget 4 → `12:00/16:00/19:00/23:00`, not `12:00/13:00/14:00/15:00`).
+  `--soonest` restores the old behaviour for the "going right now" case, and
+  `--after/--before HH:MM` aims the budget at a window directly.
+
+  Inherited from the Odyssey build, where the use case was "what's soonest tonight"
+  on a single day — it only breaks once `--days > 1`.
 
 Finally, regenerate the bundled demo dataset so a fresh clone doesn't show the
 previous movie until its first live ingest finishes:

@@ -49,19 +49,39 @@ def main() -> None:
 
     cols = ("id", "theater", "auditorium", "film", "fmt", "start_time",
             "checkout_url", "screen_center_x", "screen_y")
-    amc, regal, captured = [], [], None
-    for r in rows:
-        sh = dict(zip(cols, r))
-        if sh["id"].startswith("regal:"):
-            regal.append(sh)
-            continue
-        if len(amc) >= args.max_amc:
-            continue
+    # Only showings that actually have a seat map are candidates — a discovery-only
+    # row (seat fetch blocked or never run) would seed an empty auditorium.
+    mapped = {r[0] for r in conn.execute("SELECT DISTINCT showing_id FROM seats")}
+    all_amc = [dict(zip(cols, r)) for r in rows
+               if not r[0].startswith("regal:") and r[0] in mapped]
+    regal = [dict(zip(cols, r)) for r in rows if r[0].startswith("regal:")]
+
+    # Pick a REPRESENTATIVE sample, not the head of a time-sorted list. `rows` is
+    # ordered by start_time, so taking the first N re-froze three lunchtime matinees
+    # in one format — the same bias that --per-venue had (see README). The demo is
+    # the first thing anyone sees, so show one showing per format and prefer
+    # prime-time, where a seat map is actually interesting to look at.
+    def priority(sh: dict) -> tuple:
+        hour = int(sh["start_time"][11:13])
+        return (0 if 17 <= hour <= 23 else 1, sh["start_time"])
+
+    picked: list[dict] = []
+    for want_new_format in (True, False):   # first pass one-per-format, then fill
+        for sh in sorted(all_amc, key=priority):
+            if len(picked) >= args.max_amc:
+                break
+            if sh in picked:
+                continue
+            if want_new_format and any(p["fmt"] == sh["fmt"] for p in picked):
+                continue
+            picked.append(sh)
+
+    amc = []
+    for sh in sorted(picked, key=lambda s: s["start_time"]):
         seats = query.seats_for(conn, sh["id"])
         if not seats:
             continue  # discovery-only row (seat map was blocked/unfetched)
         amc.append({"showing": sh, "seats": [asdict(s) for s in seats]})
-        captured = captured or sh["start_time"]
 
     if not amc:
         raise SystemExit("found showings but none had seat maps — ingest seat data first")
