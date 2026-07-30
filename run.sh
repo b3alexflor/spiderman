@@ -10,6 +10,9 @@
 # venue + Regal for TODAY (~1-2 min); stage 2 fills all venues / all days behind
 # it (throttled, takes a while — nobody is waiting on it).
 #
+# Ingest runs with `python -u`: its progress is redirected to ingest.log, and block
+# buffering would otherwise hold per-showing lines for minutes and look like a hang.
+#
 #   ./run.sh [port]                 # serve + staged live refresh in the background
 #   NO_INGEST=1 ./run.sh            # demo data only (offline / no scraping)
 #   INGEST_INTERVAL=1800 ./run.sh   # stage 2 keeps refreshing every 30 min (daemon)
@@ -64,10 +67,10 @@ if [ -z "${NO_INGEST:-}" ]; then
     echo "=== $(date '+%F %T') ingest launch — stage 1: $SCOPE_FAST | stage 2: $MODE $SCOPE_FULL"
     python -m playwright install chromium   # no-op if already installed
     # shellcheck disable=SC2086
-    python scripts/ingest.py --once $SCOPE_FAST
+    python -u scripts/ingest.py --once $SCOPE_FAST
     echo "=== $(date '+%F %T') stage 1 done — starting stage 2"
     # shellcheck disable=SC2086
-    exec python scripts/ingest.py $MODE $SCOPE_FULL
+    exec python -u scripts/ingest.py $MODE $SCOPE_FULL
   ) >>ingest.log 2>&1 &
   INGEST_PID=$!
   echo "[run] staged live ingest running in background (pid $INGEST_PID) — follow with: tail -f ingest.log"
